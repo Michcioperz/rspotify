@@ -24,6 +24,7 @@ thiserror = "1.0.29"
 
 # Supported clients
 reqwest = { version = "0.11.4", default-features = false, features = ["json", "socks"], optional = true }
+tokio = { version = "1.11.0", default-features = false, features = ["time"], optional = true }
 ureq = { version = "2.2.0", default-features = false, features = ["json", "cookies"], optional = true }
 
 [dev-dependencies]
@@ -36,7 +37,7 @@ default = ["client-reqwest", "reqwest-default-tls"]
 # Available clients. By default they don't include a TLS so that it can be
 # configured.
 client-ureq = ["ureq", "__sync"]
-client-reqwest = ["reqwest", "__async"]
+client-reqwest = ["reqwest", "tokio", "__async"]
 
 # Passing the TLS features to reqwest.
 reqwest-default-tls = ["reqwest/default-tls"]

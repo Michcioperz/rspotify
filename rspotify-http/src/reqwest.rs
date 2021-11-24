@@ -5,6 +5,7 @@ use super::{BaseHttpClient, Form, Headers, Query};
 
 use std::convert::TryInto;
 
+use log::warn;
 use maybe_async::async_impl;
 use reqwest::{Method, RequestBuilder};
 use serde_json::Value;
@@ -66,33 +67,39 @@ impl ReqwestClient {
     where
         D: Fn(RequestBuilder) -> RequestBuilder,
     {
-        let mut request = self.client.request(method.clone(), url);
+        loop {
+            let mut request = self.client.request(method.clone(), url);
 
-        // Setting the headers, if any
-        if let Some(headers) = headers {
-            // The headers need to be converted into a `reqwest::HeaderMap`,
-            // which won't fail as long as its contents are ASCII. This is an
-            // internal function, so the condition cannot be broken by the user
-            // and will always be true.
-            //
-            // The content-type header will be set automatically.
-            let headers = headers.try_into().unwrap();
+            // Setting the headers, if any
+            if let Some(headers) = headers {
+                // The headers need to be converted into a `reqwest::HeaderMap`,
+                // which won't fail as long as its contents are ASCII. This is an
+                // internal function, so the condition cannot be broken by the user
+                // and will always be true.
+                //
+                // The content-type header will be set automatically.
+                let headers = headers.try_into().unwrap();
 
-            request = request.headers(headers);
-        }
+                request = request.headers(headers);
+            }
 
-        // Configuring the request for the specific type (get/post/put/delete)
-        request = add_data(request);
+            // Configuring the request for the specific type (get/post/put/delete)
+            request = add_data(request);
 
-        // Finally performing the request and handling the response
-        log::info!("Making request {:?}", request);
-        let response = request.send().await?;
+            // Finally performing the request and handling the response
+            log::info!("Making request {:?}", request);
+            let response = request.send().await?;
 
-        // Making sure that the status code is OK
-        if response.status().is_success() {
-            response.text().await.map_err(Into::into)
-        } else {
-            Err(ReqwestError::StatusCode(response))
+            // Making sure that the status code is OK
+            if response.status().is_success() {
+                return response.text().await.map_err(Into::into);
+            } else if let Some(seconds_text) = response.headers().get("Retry-After") {
+                let seconds: u64 = seconds_text.to_str().unwrap().parse().unwrap();
+                warn!("too many requests, waiting {} seconds", seconds);
+                tokio::time::sleep(tokio::time::Duration::from_secs(seconds + 1)).await;
+            } else {
+                return Err(ReqwestError::StatusCode(response));
+            }
         }
     }
 }
