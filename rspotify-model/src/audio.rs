@@ -9,11 +9,13 @@ use crate::{
     Modality, TrackId,
 };
 
+pub type AudioFeatures = Option<AudioFeatureset>;
+
 /// Audio Feature Object
 ///
 /// [Reference](https://developer.spotify.com/documentation/web-api/reference/#object-audiofeaturesobject)
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct AudioFeatures {
+pub struct AudioFeatureset {
     pub acousticness: f32,
     pub analysis_url: String,
     pub danceability: f32,
